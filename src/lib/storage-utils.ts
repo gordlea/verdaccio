@@ -225,6 +225,7 @@ export function prepareSearchPackage(data: Package, time: unknown): any {
     const versions: any = { [latest]: 'latest' };
     const pkg: any = {
       name: version.name,
+      displayName: (version as any).displayName,
       description: version.description,
       [DIST_TAGS]: { latest },
       maintainers: version.maintainers || [version.author].filter(Boolean),
