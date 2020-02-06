@@ -258,7 +258,8 @@ describe('endpoint unit test', () => {
             }
 
             expect(res.body.error).toBeDefined();
-            //FIXME: message is not 100% accurate
+            // FIXME: message is not 100% accurate
+            /* eslint new-cap: 0 */
             expect(res.body.error).toMatch(API_ERROR.PASSWORD_SHORT());
             done();
           });
@@ -596,7 +597,7 @@ describe('endpoint unit test', () => {
           .del('/-/package/jquery/dist-tags/verdaccio-tag')
           .set('accept-encoding', HEADERS.JSON)
           .set(HEADER_TYPE.CONTENT_TYPE, HEADERS.JSON)
-          //.expect(HEADER_TYPE.CONTENT_TYPE, HEADERS.JSON_CHARSET)
+          // .expect(HEADER_TYPE.CONTENT_TYPE, HEADERS.JSON_CHARSET)
           .expect(HTTP_STATUS.CREATED)
           .end(function(err, res) {
             if (err) {
@@ -620,14 +621,14 @@ describe('endpoint unit test', () => {
           .get('/-/all/since?stale=update_after&startkey=' + cacheTime)
           // .set('accept-encoding', HEADERS.JSON)
           // .set(HEADER_TYPE.CONTENT_TYPE, HEADERS.JSON)
-          //.expect(HEADER_TYPE.CONTENT_TYPE, HEADERS.JSON_CHARSET)
+          // .expect(HEADER_TYPE.CONTENT_TYPE, HEADERS.JSON_CHARSET)
           .expect(HTTP_STATUS.OK)
           .end(function(err) {
             if (err) {
               expect(err).toBeNull();
               return done(err);
             }
-            //TODO: we have to catch the stream check whether it returns something
+            // TODO: we have to catch the stream check whether it returns something
             // we should not spend much time on this api since is deprecated somehow.
             done();
           });
@@ -901,6 +902,75 @@ describe('endpoint unit test', () => {
                     });
             });
         });
+    });
+
+    describe('should test tarball url redirect', () => {
+      const pkgName = 'testTarballPackage';
+      const scopedPkgName = '@tarball_tester/testTarballPackage';
+      const credentials = { name: 'tarball_tester', password: 'secretPass' };
+      const store = path.join(__dirname, '../../partials/store/test-storage-api-spec');
+      const mockServerPort = 55549;
+        let token = '';
+      let app2;
+      beforeAll(async (done) => {
+        const configForTest = configDefault({
+          auth: {
+            htpasswd: {
+              file: './test-storage-api-spec/.htpasswd'
+            }
+          },
+          filters: {
+            '../../modules/api/partials/plugin/filter': {
+              pkg: 'npm_test',
+              version: '2.0.0'
+            }
+          },
+          storage: store,
+          self_path: store,
+          uplinks: {
+            npmjs: {
+              url: `http://${DOMAIN_SERVERS}:${mockServerPort}`
+            }
+          },
+          logs: [
+            { type: 'stdout', format: 'pretty', level: 'warn' }
+          ],
+          tarball_url_redirect: 'https://myapp.sfo1.mycdn.com/verdaccio/${package}/${filename}'
+        }, 'api.spec.yaml');
+
+        app2 = await endPointAPI(configForTest);
+        token = await getNewToken(request(app), credentials);
+        await putPackage(request(app2), `/${pkgName}`, generatePackageMetadata(pkgName), token);
+        await putPackage(request(app2), `/${scopedPkgName}`, generatePackageMetadata(scopedPkgName), token);
+        done();
+      });
+
+      test('should redirect for package tarball', (done) => {
+        request(app2)
+        .get('/testTarballPackage/-/testTarballPackage-1.0.0.tgz')
+        .expect(HTTP_STATUS.REDIRECT)
+        .end(function(err, res) {
+          if (err) {
+            return done(err);
+          }
+          expect(res.headers.location).toEqual('https://myapp.sfo1.mycdn.com/verdaccio/testTarballPackage/testTarballPackage-1.0.0.tgz');
+          done();
+        });
+      });
+
+      test('should redirect for scoped package tarball', (done) => {
+        request(app2)
+        .get('/@tarball_tester/testTarballPackage/-/testTarballPackage-1.0.0.tgz')
+        .expect(HTTP_STATUS.REDIRECT)
+        .end(function(err, res) {
+          if (err) {
+            return done(err);
+          }
+          expect(res.headers.location).toEqual('https://myapp.sfo1.mycdn.com/verdaccio/@tarball_tester/testTarballPackage/testTarballPackage-1.0.0.tgz');
+          done();
+        });
+      });
+
     });
   });
 });

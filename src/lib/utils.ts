@@ -95,10 +95,9 @@ export function validatePackage(name: string): boolean {
   if (nameList.length === 1) {
     // normal package
     return validateName(nameList[0]);
-  } else {
-    // scoped package
-    return nameList[0][0] === '@' && validateName(nameList[0].slice(1)) && validateName(nameList[1]);
   }
+  // scoped package
+  return nameList[0][0] === '@' && validateName(nameList[0].slice(1)) && validateName(nameList[1]);
 }
 
 /**
@@ -141,12 +140,19 @@ export function validateMetadata(object: Package, name: string): Package {
  * @return {String} base registry url
  */
 export function combineBaseUrl(protocol: string, host: string | void, prefix?: string | void): string {
-  let result = `${protocol}://${host}`;
+  const result = `${protocol}://${host}`;
 
-  if (prefix) {
-    prefix = prefix.replace(/\/$/, '');
+  const prefixOnlySlash = prefix === '/';
+  if (prefix && !prefixOnlySlash) {
+    if (prefix.endsWith('/')) {
+      prefix = prefix.slice(0, -1);
+    }
 
-    result = prefix.indexOf('/') === 0 ? `${result}${prefix}` : prefix;
+    if (prefix.startsWith('/')) {
+      return `${result}${prefix}`;
+    }
+
+    return prefix;
   }
 
   return result;
@@ -419,9 +425,8 @@ export function parseConfigFile(configPath: string): any {
   try {
     if (/\.ya?ml$/i.test(configPath)) {
       return YAML.safeLoad(fs.readFileSync(configPath, CHARACTER_ENCODING.UTF8));
-    } else {
-      return require(configPath);
     }
+    return require(configPath);
   } catch (e) {
     if (e.code !== 'MODULE_NOT_FOUND') {
       e.message = APP_ERROR.CONFIG_NOT_VALID;
