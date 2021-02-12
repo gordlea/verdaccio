@@ -21,6 +21,26 @@ const downloadStream = (packageName: string, filename: string, storage: any, req
   stream.pipe(res);
 };
 
+const downloadStreamOrRedirect = (packageName: string, filename: string, storage: any, req: $RequestExtend, res: $ResponseExtend, config: Config): void => {
+  if (config.tarball_url_redirect) {
+    storage.hasLocalTarball(packageName, filename).then(hasLocalTarball => {
+      if (hasLocalTarball) {
+        const context = { packageName, filename };
+        const tarballUrl = typeof config.tarball_url_redirect === 'function'
+          ? config.tarball_url_redirect(context)
+          : _.template(config.tarball_url_redirect)(context);
+        res.redirect(tarballUrl);
+      } else {
+        downloadStream(packageName, filename, storage, req, res)
+      }
+    }).catch(err => {
+      res.report_error(err);
+    });
+  } else {
+    downloadStream(packageName, filename, storage, req, res)
+  }
+}
+
 export default function(route: Router, auth: IAuth, storage: IStorageHandler, config: Config): void {
   const can = allow(auth);
   // TODO: anonymous user?
@@ -63,11 +83,10 @@ export default function(route: Router, auth: IAuth, storage: IStorageHandler, co
 
   route.get('/:scopedPackage/-/:scope/:filename', can('access'), function(req: $RequestExtend, res: $ResponseExtend): void {
     const { scopedPackage, filename } = req.params;
-
-    downloadStream(scopedPackage, filename, storage, req, res);
+    downloadStreamOrRedirect(scopedPackage, filename, storage, req, res, config);
   });
 
   route.get('/:package/-/:filename', can('access'), function(req: $RequestExtend, res: $ResponseExtend): void {
-    downloadStream(req.params.package, req.params.filename, storage, req, res);
+    downloadStreamOrRedirect(req.params.package, req.params.filename, storage, req, res, config);
   });
 }
